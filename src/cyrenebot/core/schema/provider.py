@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 from pydantic import Field
+from datetime import timedelta
 from cyrenebot.core.schema.base import CyreneBotSchema
 
 
@@ -83,6 +84,8 @@ class ProviderConfig(ProviderBase):
     provider_type: ProviderType
     api_key: str | None = None
     base_url: str | None = None
-    timeout: float | None = None
+    timeout: timedelta | None = Field(
+        default=None, ge=timedelta(seconds=0), description="请求超时时间"
+    )
     enabled: bool = True
     metadata: dict[str, str] = Field(default_factory=dict)

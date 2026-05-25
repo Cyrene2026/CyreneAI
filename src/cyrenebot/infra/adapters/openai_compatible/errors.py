@@ -19,7 +19,7 @@ from openai import (
     WebSocketConnectionClosedError as OpenAIWebSocketConnectionClosedError,
     WebSocketQueueFullError as OpenAIWebSocketQueueFullError,
 )
-
+from typing import NoReturn
 from cyrenebot.core.errors.provider import (
     ProviderError,
     ProviderUnavailableError,
@@ -89,3 +89,7 @@ def translate_openai_error(exc: Exception) -> ProviderError:
         return ProviderRequestError(message=str(exc), cause=exc)
     else:
         return ProviderError(message=str(exc), cause=exc)
+
+
+def raise_openai_error(exc: Exception) -> NoReturn:
+    raise translate_openai_error(exc) from exc

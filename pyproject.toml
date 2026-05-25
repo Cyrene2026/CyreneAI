@@ -8,7 +8,8 @@ dependencies = [
     "openai",
     "python-dotenv",
     "httpx",
-    "pydantic"
+    "pydantic",
+    "pytest",
 ]
 
 [build-system]
