@@ -26,10 +26,25 @@ class ProviderFactoryProtocol(Protocol):
         ...
 
 
-class ChatProviderProtocol(Protocol): ...
+class ChatProviderProtocol(ProviderInstanceProtocol, Protocol):
+    async def chat(self, request: ChatRequest) -> ChatResponse:
+        """
+        调用 provider 进行聊天
+        """
+        ...
 
 
-class EmbeddingProviderProtocol(Protocol): ...
+class EmbeddingProviderProtocol(ProviderInstanceProtocol, Protocol):
+    async def embed(self, text: str) -> list[float]:
+        """
+        调用 provider 进行文本嵌入
+        """
+        ...
 
 
-class TTSProviderProtocol(Protocol): ...
+class TTSProviderProtocol(ProviderInstanceProtocol, Protocol):
+    async def tts(self, text: str) -> bytes:
+        """
+        调用 provider 进行文本转语音
+        """
+        ...

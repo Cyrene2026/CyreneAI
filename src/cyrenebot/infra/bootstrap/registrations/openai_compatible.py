@@ -4,10 +4,10 @@ from cyrenebot.core.provider.factory import ProviderFactory
 from cyrenebot.core.provider.provider_protocol import ProviderInstanceProtocol
 from cyrenebot.core.provider.registry import ProviderRegistry
 from cyrenebot.core.schema.provider import ProviderConfig, ProviderType
-from cyrenebot.infra.adapters.openai_compatible.builder import (
+from cyrenebot.infra.adapters.providers.openai_compatible.builder import (
     build_openai_compatible_provider,
 )
-from cyrenebot.infra.providers.openai_compatible_info import (
+from cyrenebot.infra.provider_catalog.openai_compatible_info import (
     OPENAI_COMPATIBLE_PROVIDER_INFO,
 )
 

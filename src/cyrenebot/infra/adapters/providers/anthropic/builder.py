@@ -1,16 +1,15 @@
 from cyrenebot.core.provider.provider_protocol import ProviderInstanceProtocol
 from cyrenebot.core.schema.provider import ProviderConfig, ProviderInfo
-
-from cyrenebot.infra.adapters.openai_compatible.instance import (
-    OpenAICompatibleProviderInstance,
+from cyrenebot.infra.adapters.providers.anthropic.instance import (
+    AnthropicProviderInstance,
 )
 
 
-async def build_openai_compatible_provider(
+async def build_anthropic_provider(
     config: ProviderConfig,
     info: ProviderInfo,
 ) -> ProviderInstanceProtocol:
-    return OpenAICompatibleProviderInstance(
+    return AnthropicProviderInstance(
         config=config,
         info=info,
     )

@@ -46,6 +46,7 @@ class ProviderType(StrEnum):
     """
 
     OPENAI_COMPATIBLE = "openai_compatible"
+    OPENAI_RESPONSES = "openai_responses"
     OPENAI = "openai"
     GOOGLE = "google"
     ANTHROPIC = "anthropic"

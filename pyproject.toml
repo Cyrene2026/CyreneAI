@@ -10,6 +10,9 @@ dependencies = [
     "httpx",
     "pydantic",
     "pytest",
+    "pytest-asyncio",
+    "google-genai",
+    "anthropic",
 ]
 
 [build-system]

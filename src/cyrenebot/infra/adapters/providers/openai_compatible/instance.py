@@ -1,19 +1,12 @@
+from typing import Any
+
 from openai import AsyncOpenAI
-from cyrenebot.infra.adapters.openai_compatible.errors import (
+from cyrenebot.infra.adapters.providers.openai_compatible.errors import (
     raise_openai_error,
 )
-from cyrenebot.infra.adapters.openai_compatible.mapper import (
+from cyrenebot.infra.adapters.providers.openai_compatible.mapper import (
     map_chat_request,
     map_chat_response,
-    map_message,
-    map_content_parts,
-    map_tool,
-    map_tools,
-    map_tool_choice,
-    map_chat_response,
-    map_finish_reason,
-    map_usage,
-    map_tool_call,
 )
 from cyrenebot.core.schema.provider import (
     ProviderConfig,
@@ -28,6 +21,7 @@ class OpenAICompatibleProviderInstance:
         self,
         config: ProviderConfig,
         info: ProviderInfo,
+        client: Any | None = None,
     ) -> None:
         if not config.api_key:
             raise ProviderConfigurationError(
@@ -36,7 +30,7 @@ class OpenAICompatibleProviderInstance:
         self.config = config
         self.info = info
         self.timeout = config.timeout.total_seconds() if config.timeout else None
-        self._client = AsyncOpenAI(
+        self._client = client or AsyncOpenAI(
             api_key=config.api_key,
             base_url=config.base_url,
             timeout=self.timeout,

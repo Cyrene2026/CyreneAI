@@ -182,4 +182,3 @@ uv run pytest -s src\cyrenebot\tests\test_openai_compatible_real_chat.py
 ```
 
 看到真实模型返回，并通过测试，才算 openai-compatible 实际链路验收完成。
-

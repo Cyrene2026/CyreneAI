@@ -110,4 +110,3 @@ OPENAI_COMPATIBLE_MODEL 或 OPENAI_MODEL
 ```
 
 真实测试没有环境变量时必须 skip，不能失败。
-
