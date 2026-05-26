@@ -83,3 +83,70 @@ async def _run_http_tool_with_server_error() -> None:
 def test_http_tool_executor_translates_http_errors() -> None:
     with pytest.raises(ToolExecutionError):
         asyncio.run(_run_http_tool_with_server_error())
+
+
+async def _run_http_tool_with_text_response() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            text="plain value",
+            headers={"content-type": "text/plain"},
+        )
+
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="https://tools.local",
+    )
+    try:
+        executor = HttpToolExecutor(
+            "https://tools.local/lookup",
+            client=client,
+        )
+        result = await executor.execute(
+            ToolCall(
+                id="call-1",
+                name="lookup",
+                arguments="{}",
+            )
+        )
+    finally:
+        await client.aclose()
+
+    assert result.call_id == "call-1"
+    assert result.name == "lookup"
+    assert result.content == "plain value"
+
+
+def test_http_tool_executor_maps_text_response() -> None:
+    asyncio.run(_run_http_tool_with_text_response())
+
+
+async def _run_http_tool_with_transport_error() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection failed", request=request)
+
+    client = httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="https://tools.local",
+    )
+    try:
+        executor = HttpToolExecutor(
+            "https://tools.local/lookup",
+            client=client,
+        )
+        await executor.execute(
+            ToolCall(
+                id="call-1",
+                name="lookup",
+                arguments="{}",
+            )
+        )
+    finally:
+        await client.aclose()
+
+
+def test_http_tool_executor_translates_transport_errors() -> None:
+    with pytest.raises(ToolExecutionError) as caught:
+        asyncio.run(_run_http_tool_with_transport_error())
+
+    assert isinstance(caught.value.cause, httpx.ConnectError)

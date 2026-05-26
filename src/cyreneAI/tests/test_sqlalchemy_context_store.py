@@ -1,12 +1,25 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 
 import pytest
+from sqlalchemy import insert
+from sqlalchemy.exc import SQLAlchemyError
 
 from cyreneAI.core.context.manager import ContextManager
-from cyreneAI.core.errors.context import ContextNotFoundError
+from cyreneAI.core.errors.context import (
+    ContextInputError,
+    ContextNotFoundError,
+    ContextStoreError,
+)
 from cyreneAI.core.schema.context import ContextSnapshot, ContextWindow
+from cyreneAI.infra.database.sqlalchemy.context_store import SQLAlchemyContextStore
+from cyreneAI.infra.database.sqlalchemy.context_tables import (
+    context_snapshots,
+    create_context_tables,
+)
+from cyreneAI.infra.database.sqlite.builder import create_sqlite_async_engine
 from cyreneAI.infra.database.sqlite.builder import create_sqlite_context_store
 
 
@@ -94,3 +107,72 @@ async def _run_context_manager_with_store(database_path) -> None:
 
 def test_context_manager_works_with_sqlalchemy_context_store(tmp_path) -> None:
     asyncio.run(_run_context_manager_with_store(tmp_path / "context.db"))
+
+
+class _FailingContext:
+    async def __aenter__(self):
+        raise SQLAlchemyError("database down")
+
+    async def __aexit__(self, exc_type, exc, traceback) -> None:
+        return None
+
+
+class _FailingEngine:
+    def begin(self) -> _FailingContext:
+        return _FailingContext()
+
+    def connect(self) -> _FailingContext:
+        return _FailingContext()
+
+    async def dispose(self) -> None:
+        return None
+
+
+async def _run_store_translates_database_errors() -> None:
+    store = SQLAlchemyContextStore(_FailingEngine())
+    snapshot = _snapshot("snapshot-1", "session-1")
+
+    with pytest.raises(ContextStoreError):
+        await store.save_snapshot(snapshot)
+
+    with pytest.raises(ContextStoreError):
+        await store.get_snapshot("snapshot-1")
+
+    with pytest.raises(ContextStoreError):
+        await store.list_snapshots("session-1")
+
+    with pytest.raises(ContextStoreError):
+        await store.delete_snapshot("snapshot-1")
+
+    await store.close()
+
+
+def test_sqlalchemy_context_store_translates_database_errors() -> None:
+    asyncio.run(_run_store_translates_database_errors())
+
+
+async def _run_store_rejects_invalid_payload(database_path) -> None:
+    engine = create_sqlite_async_engine(database_path)
+    await create_context_tables(engine)
+    store = SQLAlchemyContextStore(engine)
+    try:
+        now = datetime.now(UTC)
+        async with engine.begin() as connection:
+            await connection.execute(
+                insert(context_snapshots).values(
+                    snapshot_id="snapshot-1",
+                    session_id="session-1",
+                    payload={"snapshot_id": "snapshot-1"},
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+
+        with pytest.raises(ContextInputError):
+            await store.get_snapshot("snapshot-1")
+    finally:
+        await store.close()
+
+
+def test_sqlalchemy_context_store_rejects_invalid_payload(tmp_path) -> None:
+    asyncio.run(_run_store_rejects_invalid_payload(tmp_path / "context.db"))

@@ -5,7 +5,7 @@ import sys
 
 import pytest
 
-from cyreneAI.core.errors.tool import ToolExecutionError
+from cyreneAI.core.errors.tool import ToolConfigurationError, ToolExecutionError
 from cyreneAI.core.schema.tool import ToolCall
 from cyreneAI.infra.adapters.tools.subprocess.executor import SubprocessToolExecutor
 
@@ -53,3 +53,45 @@ async def _run_failing_subprocess_tool() -> None:
 def test_subprocess_tool_executor_translates_nonzero_exit() -> None:
     with pytest.raises(ToolExecutionError):
         asyncio.run(_run_failing_subprocess_tool())
+
+
+def test_subprocess_tool_executor_rejects_empty_command() -> None:
+    with pytest.raises(ToolConfigurationError):
+        SubprocessToolExecutor([])
+
+
+async def _run_missing_subprocess_tool() -> None:
+    executor = SubprocessToolExecutor(["cyreneai-missing-command-for-test"])
+    await executor.execute(
+        ToolCall(
+            id="call-1",
+            name="lookup",
+            arguments="{}",
+        )
+    )
+
+
+def test_subprocess_tool_executor_translates_start_failure() -> None:
+    with pytest.raises(ToolExecutionError) as caught:
+        asyncio.run(_run_missing_subprocess_tool())
+
+    assert isinstance(caught.value.cause, OSError)
+
+
+async def _run_timing_out_subprocess_tool() -> None:
+    code = "import time; time.sleep(10)"
+    executor = SubprocessToolExecutor([sys.executable, "-c", code], timeout=0.01)
+    await executor.execute(
+        ToolCall(
+            id="call-1",
+            name="lookup",
+            arguments="{}",
+        )
+    )
+
+
+def test_subprocess_tool_executor_translates_timeout() -> None:
+    with pytest.raises(ToolExecutionError) as caught:
+        asyncio.run(_run_timing_out_subprocess_tool())
+
+    assert isinstance(caught.value.cause, TimeoutError)
