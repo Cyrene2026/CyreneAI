@@ -16,7 +16,7 @@
 
 ```text
 core -> infra
-core/infra -> applications
+core/infra -> application
 ```
 
 实际含义：
@@ -25,7 +25,7 @@ core/infra -> applications
 core
   只定义规则、schema、protocol、通用错误。
 
-infra/providers
+infra/provider_catalog
   只放 provider 注册信息。
 
 infra/adapters
@@ -34,7 +34,7 @@ infra/adapters
 infra/bootstrap
   只负责把 provider info、adapter builder、registry、factory 装配起来。
 
-applications
+application
   只负责应用入口与业务流程编排。
 ```
 
@@ -48,7 +48,7 @@ applications
 - 创建外部 SDK client
 - 写 provider 专属实现规则
 
-`infra/providers` 严禁：
+`infra/provider_catalog` 严禁：
 
 - 放 `builder.py`
 - 放 `instance.py`
@@ -68,7 +68,7 @@ applications
 
 ## provider 信息目录规则
 
-`src/cyrenebot/infra/providers/` 只准放：
+`src/cyreneAI/infra/provider_catalog/` 只准放：
 
 ```text
 __init__.py
@@ -82,13 +82,13 @@ __init__.py
 `openai_compatible` 是协议适配器，不是具体厂商身份。
 
 ```text
-src/cyrenebot/infra/providers/openai_compatible_info.py
+src/cyreneAI/infra/provider_catalog/openai_compatible_info.py
   只声明 OPENAI_COMPATIBLE_PROVIDER_INFO
 
-src/cyrenebot/infra/adapters/openai_compatible/
+src/cyreneAI/infra/adapters/providers/openai_compatible/
   实现 OpenAI-compatible 协议调用
 
-src/cyrenebot/infra/bootstrap/openai_compatible.py
+src/cyreneAI/infra/bootstrap/registrations/openai_compatible.py
   装配 provider info 与 adapter builder
 ```
 
@@ -98,7 +98,7 @@ src/cyrenebot/infra/bootstrap/openai_compatible.py
 
 ```bash
 uv run python -m compileall src
-uv run pytest src\cyrenebot\tests
+uv run pytest src\cyreneAI\tests
 ```
 
 真实 API 验证使用环境变量：

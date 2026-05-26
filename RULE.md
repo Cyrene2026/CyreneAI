@@ -21,7 +21,7 @@
 core
   定义规则
 
-infra/providers
+infra/provider_catalog
   声明身份
 
 infra/adapters
@@ -30,15 +30,15 @@ infra/adapters
 infra/bootstrap
   装配组件
 
-applications
+application
   编排应用
 ```
 
 不允许为了方便跨层写代码。
 
-## providers 目录铁律
+## provider catalog 目录铁律
 
-`src/cyrenebot/infra/providers/` 只准放格式为 `{provider_name}_info.py` 的 py 文件。
+`src/cyreneAI/infra/provider_catalog/` 只准放格式为 `{provider_name}_info.py` 的 py 文件。
 
 允许：
 
@@ -172,13 +172,13 @@ provider 专属配置要求应在 adapter builder 或 instance 中处理。
 
 ```bash
 uv run python -m compileall src
-uv run pytest src\cyrenebot\tests
+uv run pytest src\cyreneAI\tests
 ```
 
 真实调用验证：
 
 ```bash
-uv run pytest -s src\cyrenebot\tests\test_openai_compatible_real_chat.py
+uv run pytest -s src\cyreneAI\tests\test_openai_compatible_real_chat.py
 ```
 
 看到真实模型返回，并通过测试，才算 openai-compatible 实际链路验收完成。
