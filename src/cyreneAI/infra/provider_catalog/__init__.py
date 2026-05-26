@@ -1,4 +1,3 @@
 """
-诸位，请注意：此文件夹只准放格式为{provider_name}_info.py的py文件，
-若出现其他文件，本人恕不接收该pull request
+请注意:该文件夹里只允许放__init__.py和{provider_name}_info.py文件，若出现这些非法格式文件，本人恕不接上该pull request
 """
