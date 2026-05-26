@@ -13,6 +13,8 @@ dependencies = [
     "pytest-asyncio",
     "google-genai",
     "anthropic",
+    "sqlalchemy",
+    "aiosqlite",
 ]
 
 [build-system]

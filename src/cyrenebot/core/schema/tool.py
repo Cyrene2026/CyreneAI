@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Any, Literal
+from pydantic import Field
 
 from cyrenebot.core.schema.base import CyreneBotSchema
 
@@ -22,6 +23,19 @@ class ToolCall(CyreneBotSchema):
     id: str
     name: str
     arguments: str | None = None
+
+
+class ToolResult(CyreneBotSchema):
+    """
+    工具执行结果schema
+    """
+
+    call_id: str
+    name: str
+    content: str | None = None
+    success: bool = True
+    error: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ToolChoice(CyreneBotSchema):
