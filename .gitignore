@@ -42,3 +42,6 @@ logs/
 *.tmp
 *.bak
 *.swp
+
+# 外部对比/临时克隆
+.external/
