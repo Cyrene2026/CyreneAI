@@ -45,3 +45,6 @@ logs/
 
 # 外部对比/临时克隆
 .external/
+
+.codex/
+.agents/

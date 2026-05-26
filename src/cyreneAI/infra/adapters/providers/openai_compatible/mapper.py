@@ -6,6 +6,11 @@ from cyreneAI.core.schema.chat import (
     ChatResponse,
     ChatFinishReason,
 )
+from cyreneAI.core.schema.embedding import (
+    EmbeddingRequest,
+    EmbeddingResponse,
+    EmbeddingVector,
+)
 from cyreneAI.core.schema.usage import TokenUsage
 from cyreneAI.core.schema.tool import (
     ToolDefinition,
@@ -25,6 +30,7 @@ from openai.types.chat import (
     ChatCompletionToolParam,
     ChatCompletionToolChoiceOptionParam,
 )
+from openai.types import CreateEmbeddingResponse
 
 
 def map_chat_request(request: ChatRequest) -> dict[str, Any]:
@@ -192,6 +198,35 @@ def map_tool_call(tool_call: Any) -> ToolCall | None:
         id=getattr(tool_call, "id", ""),
         name=getattr(function, "name", ""),
         arguments=getattr(function, "arguments", None),
+    )
+
+
+def map_embedding_request(request: EmbeddingRequest) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "model": request.model,
+        "input": request.input,
+        "dimensions": request.dimensions,
+    }
+    return _drop_none(payload)
+
+
+def map_embedding_response(
+    provider_id: str,
+    response: CreateEmbeddingResponse,
+) -> EmbeddingResponse:
+    embeddings = [
+        EmbeddingVector(
+            index=getattr(item, "index", index),
+            embedding=list(getattr(item, "embedding", [])),
+        )
+        for index, item in enumerate(response.data)
+    ]
+    return EmbeddingResponse(
+        provider_id=provider_id,
+        model=response.model,
+        embeddings=embeddings,
+        usage=map_usage(response.usage),
+        raw=response.model_dump(mode="json"),
     )
 
 

@@ -7,6 +7,8 @@ from cyreneAI.infra.adapters.providers.openai_compatible.errors import (
 from cyreneAI.infra.adapters.providers.openai_compatible.mapper import (
     map_chat_request,
     map_chat_response,
+    map_embedding_request,
+    map_embedding_response,
 )
 from cyreneAI.core.schema.provider import (
     ProviderConfig,
@@ -14,6 +16,7 @@ from cyreneAI.core.schema.provider import (
 )
 from cyreneAI.core.errors.provider import ProviderConfigurationError
 from cyreneAI.core.schema.chat import ChatRequest, ChatResponse
+from cyreneAI.core.schema.embedding import EmbeddingRequest, EmbeddingResponse
 
 
 class OpenAICompatibleProviderInstance:
@@ -44,6 +47,17 @@ class OpenAICompatibleProviderInstance:
             payload = map_chat_request(request)
             response = await self._client.chat.completions.create(**payload)
             return map_chat_response(
+                provider_id=self.config.provider_id,
+                response=response,
+            )
+        except Exception as exc:
+            raise_openai_error(exc)
+
+    async def embed(self, request: EmbeddingRequest) -> EmbeddingResponse:
+        try:
+            payload = map_embedding_request(request)
+            response = await self._client.embeddings.create(**payload)
+            return map_embedding_response(
                 provider_id=self.config.provider_id,
                 response=response,
             )

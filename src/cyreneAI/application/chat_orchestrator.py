@@ -17,6 +17,7 @@ from cyreneAI.core.schema.context import (
     ContextBuildResult,
     ContextItem,
     ContextItemSource,
+    ContextSegment,
     ContextSegmentRole,
     ContextSnapshot,
     ContextWindow,
@@ -42,6 +43,7 @@ class ApplicationChatRequest(CyreneAISchema):
     context_budget: ContextBudget | None = None
     required_skill_names: list[str] = Field(default_factory=list)
     max_skills: int | None = None
+    additional_context_segments: list[ContextSegment] = Field(default_factory=list)
 
     temperature: float | None = None
     max_tokens: int | None = None
@@ -77,9 +79,13 @@ class ChatOrchestrator:
         编排一次聊天请求
         """
         context_result = await self._build_context(request)
+        context_window = _append_context_segments(
+            context_result.window,
+            request.additional_context_segments,
+        )
         context_snapshot = _build_context_snapshot(
             request=request,
-            context_result=context_result,
+            context_window=context_window,
         )
         if self._runtime.context_manager is not None:
             await self._runtime.context_manager.save(context_snapshot)
@@ -87,7 +93,7 @@ class ChatOrchestrator:
         skill_bundle = self._build_skill_bundle(request)
         provider_request = self._build_provider_request(
             request=request,
-            context_window=context_result.window,
+            context_window=context_window,
             skill_bundle=skill_bundle,
         )
         provider = self._get_chat_provider(request.provider_id)
@@ -231,17 +237,33 @@ class ChatOrchestrator:
 def _build_context_snapshot(
     *,
     request: ApplicationChatRequest,
-    context_result: ContextBuildResult,
+    context_window: ContextWindow,
 ) -> ContextSnapshot:
     return ContextSnapshot(
         snapshot_id=str(uuid4()),
         session_id=request.session_id,
-        window=context_result.window,
+        window=context_window,
         metadata={
             **request.metadata,
             "provider_id": request.provider_id,
             "model": request.model,
         },
+    )
+
+
+def _append_context_segments(
+    context_window: ContextWindow,
+    additional_segments: list[ContextSegment],
+) -> ContextWindow:
+    if not additional_segments:
+        return context_window
+    return context_window.model_copy(
+        update={
+            "segments": [
+                *context_window.segments,
+                *additional_segments,
+            ]
+        }
     )
 
 

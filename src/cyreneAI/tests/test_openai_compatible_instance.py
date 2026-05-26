@@ -4,10 +4,12 @@ import asyncio
 from datetime import timedelta
 
 import pytest
+from openai.types import CreateEmbeddingResponse
 from openai.types.chat import ChatCompletion
 
 from cyreneAI.core.schema.chat import ChatFinishReason, ChatRequest
 from cyreneAI.core.errors.provider import ProviderConfigurationError
+from cyreneAI.core.schema.embedding import EmbeddingRequest
 from cyreneAI.core.schema.message import (
     ContentPart,
     ContentPartType,
@@ -50,9 +52,42 @@ class _FakeChat:
         self.completions = _FakeCompletions(response)
 
 
+class _FakeEmbeddings:
+    def __init__(self, response: CreateEmbeddingResponse) -> None:
+        self.response = response
+        self.payload = None
+
+    async def create(self, **payload):
+        self.payload = payload
+        return self.response
+
+
 class _FakeOpenAIClient:
-    def __init__(self, response: ChatCompletion) -> None:
+    def __init__(
+        self,
+        response: ChatCompletion | None = None,
+        embedding_response: CreateEmbeddingResponse | None = None,
+    ) -> None:
+        if response is None:
+            response = ChatCompletion(
+                id="chatcmpl-test",
+                object="chat.completion",
+                created=1,
+                model="test-model",
+                choices=[],
+            )
+        if embedding_response is None:
+            embedding_response = CreateEmbeddingResponse(
+                object="list",
+                model="embed-model",
+                data=[],
+                usage={
+                    "prompt_tokens": 0,
+                    "total_tokens": 0,
+                },
+            )
         self.chat = _FakeChat(response)
+        self.embeddings = _FakeEmbeddings(embedding_response)
         self.closed = False
 
     async def close(self) -> None:
@@ -188,3 +223,59 @@ async def _run_chat_with_tool_call() -> None:
 
 def test_openai_compatible_instance_passes_tool_call_payload() -> None:
     asyncio.run(_run_chat_with_tool_call())
+
+
+async def _run_embedding_request() -> None:
+    embedding_response = CreateEmbeddingResponse(
+        object="list",
+        model="embed-model",
+        data=[
+            {
+                "object": "embedding",
+                "index": 0,
+                "embedding": [0.1, 0.2],
+            }
+        ],
+        usage={
+            "prompt_tokens": 2,
+            "total_tokens": 2,
+        },
+    )
+    client = _FakeOpenAIClient(embedding_response=embedding_response)
+    config = ProviderConfig(
+        provider_id="test",
+        provider_type=ProviderType.OPENAI_COMPATIBLE,
+        api_key="test-key",
+    )
+    instance = OpenAICompatibleProviderInstance(
+        config=config,
+        info=_provider_info(),
+        client=client,
+    )
+
+    response = await instance.embed(
+        EmbeddingRequest(
+            provider_id="test",
+            model="embed-model",
+            input=["hello", "world"],
+            dimensions=128,
+        )
+    )
+
+    assert client.embeddings.payload == {
+        "model": "embed-model",
+        "input": ["hello", "world"],
+        "dimensions": 128,
+    }
+    assert response.provider_id == "test"
+    assert response.model == "embed-model"
+    assert response.embeddings[0].embedding == [0.1, 0.2]
+    assert response.usage is not None
+    assert response.usage.prompt_tokens == 2
+
+    await instance.close()
+    assert client.closed is True
+
+
+def test_openai_compatible_instance_passes_embedding_payload() -> None:
+    asyncio.run(_run_embedding_request())

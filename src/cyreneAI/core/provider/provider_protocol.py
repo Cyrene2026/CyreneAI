@@ -1,6 +1,7 @@
 from typing import Protocol
 from cyreneAI.core.schema.provider import ProviderInfo, ProviderConfig
 from cyreneAI.core.schema.chat import ChatRequest, ChatResponse
+from cyreneAI.core.schema.embedding import EmbeddingRequest, EmbeddingResponse
 
 
 class ProviderInstanceProtocol(Protocol):
@@ -35,9 +36,9 @@ class ChatProviderProtocol(ProviderInstanceProtocol, Protocol):
 
 
 class EmbeddingProviderProtocol(ProviderInstanceProtocol, Protocol):
-    async def embed(self, text: str) -> list[float]:
+    async def embed(self, request: EmbeddingRequest) -> EmbeddingResponse:
         """
-        调用 provider 进行文本嵌入
+        调用 provider 进行文本嵌入。
         """
         ...
 

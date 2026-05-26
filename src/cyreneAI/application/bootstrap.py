@@ -15,7 +15,12 @@ from cyreneAI.core.skill.registry import SkillRegistry
 from cyreneAI.core.tool.manager import ToolManager
 from cyreneAI.core.tool.registry import ToolRegistry
 from cyreneAI.core.tool.tool_protocol import ToolRegistryProtocol
+from cyreneAI.core.vector.manager import VectorManager
+from cyreneAI.core.vector.vector_protocol import VectorStoreProtocol
 from cyreneAI.infra.adapters.skills.filesystem.loader import FileSystemSkillLoader
+from cyreneAI.infra.adapters.vector_stores.sqlite.builder import (
+    create_sqlite_vector_store,
+)
 from cyreneAI.infra.bootstrap.registrations.providers import register_default_providers
 from cyreneAI.infra.database.sqlite.builder import create_sqlite_context_store
 
@@ -27,6 +32,8 @@ async def build_cyrene_ai_runtime(
     skill_path: str | Path | None = None,
     context_builder: ContextBuilderProtocol | None = None,
     tool_registry: ToolRegistryProtocol | None = None,
+    vector_store: VectorStoreProtocol | None = None,
+    vector_database_path: str | Path | None = None,
 ) -> CyreneAIRuntime:
     """
     构建 CyreneAI 应用运行时
@@ -53,11 +60,22 @@ async def build_cyrene_ai_runtime(
             skill_registry.register(definition)
         skill_manager = SkillManager(skill_registry)
 
+    runtime_vector_store = vector_store
+    if runtime_vector_store is not None and vector_database_path is not None:
+        raise ValueError("vector_store and vector_database_path cannot both be set")
+    if runtime_vector_store is None and vector_database_path is not None:
+        runtime_vector_store = await create_sqlite_vector_store(vector_database_path)
+
     runtime_tool_registry = tool_registry or ToolRegistry()
     return CyreneAIRuntime(
         provider_manager=provider_manager,
         context_builder=context_builder or ContextWindowBuilder(),
         context_manager=context_manager,
+        vector_manager=(
+            VectorManager(runtime_vector_store)
+            if runtime_vector_store is not None
+            else None
+        ),
         skill_manager=skill_manager,
         tool_registry=runtime_tool_registry,
         tool_manager=ToolManager(runtime_tool_registry),

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from openai.types import CreateEmbeddingResponse
 from openai.types.chat import ChatCompletion
 
 from cyreneAI.core.schema.chat import ChatFinishReason, ChatRequest
+from cyreneAI.core.schema.embedding import EmbeddingRequest
 from cyreneAI.core.schema.message import (
     ContentPart,
     ContentPartType,
@@ -13,6 +15,8 @@ from cyreneAI.core.schema.tool import ToolChoice, ToolDefinition
 from cyreneAI.infra.adapters.providers.openai_compatible.mapper import (
     map_chat_request,
     map_chat_response,
+    map_embedding_request,
+    map_embedding_response,
     map_finish_reason,
 )
 
@@ -142,3 +146,57 @@ def test_map_finish_reason_handles_known_and_unknown_values() -> None:
     assert map_finish_reason("content_filter") == ChatFinishReason.CONTENT_FILTER
     assert map_finish_reason("something-new") == ChatFinishReason.UNKNOWN
     assert map_finish_reason(None) == ChatFinishReason.UNKNOWN
+
+
+def test_map_embedding_request_builds_openai_compatible_payload() -> None:
+    request = EmbeddingRequest(
+        provider_id="provider-1",
+        model="embed-model",
+        input=["hello", "world"],
+        dimensions=128,
+    )
+
+    payload = map_embedding_request(request)
+
+    assert payload == {
+        "model": "embed-model",
+        "input": ["hello", "world"],
+        "dimensions": 128,
+    }
+
+
+def test_map_embedding_response_builds_core_response() -> None:
+    response = CreateEmbeddingResponse(
+        object="list",
+        model="embed-model",
+        data=[
+            {
+                "object": "embedding",
+                "index": 0,
+                "embedding": [0.1, 0.2],
+            },
+            {
+                "object": "embedding",
+                "index": 1,
+                "embedding": [0.3, 0.4],
+            },
+        ],
+        usage={
+            "prompt_tokens": 3,
+            "total_tokens": 3,
+        },
+    )
+
+    mapped = map_embedding_response("provider-1", response)
+
+    assert mapped.provider_id == "provider-1"
+    assert mapped.model == "embed-model"
+    assert [item.index for item in mapped.embeddings] == [0, 1]
+    assert [item.embedding for item in mapped.embeddings] == [
+        [0.1, 0.2],
+        [0.3, 0.4],
+    ]
+    assert mapped.usage is not None
+    assert mapped.usage.prompt_tokens == 3
+    assert mapped.usage.total_tokens == 3
+    assert mapped.raw is not None
