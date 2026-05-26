@@ -1,258 +1,117 @@
 ```mermaid
-flowchart TB
-  %% Application
-  subgraph APP["application"]
-    app_boot["application/bootstrap"]
-    app_runtime["application/runtime"]
-    app_chat["application/chat_orchestrator"]
+flowchart LR
+  %% =====================
+  %% Application Layer
+  %% =====================
+  subgraph APP["application：运行时内核"]
+    direction TB
+    app_boot["bootstrap\n装配 runtime"]
+    app_runtime["runtime\n持有 managers"]
+    app_chat["chat_orchestrator\n请求生命周期"]
   end
 
-  %% Core
-  subgraph CORE["core"]
-    subgraph CORE_SCHEMA["core/schema"]
-      schema_chat["schema/chat"]
-      schema_context["schema/context"]
-      schema_message["schema/message"]
-      schema_provider["schema/provider"]
-      schema_skill["schema/skill"]
-      schema_tool["schema/tool"]
+  %% =====================
+  %% Infra Layer
+  %% =====================
+  subgraph INFRA["infra：驱动与外部适配"]
+    direction TB
+
+    subgraph INFRA_BOOT["bootstrap"]
+      provider_regs["provider registrations"]
     end
 
-    subgraph CORE_ERRORS["core/errors"]
-      errors_base["errors/base"]
-      errors_context["errors/context"]
-      errors_provider["errors/provider"]
-      errors_skill["errors/skill"]
-      errors_tool["errors/tool"]
+    subgraph INFRA_ADAPTERS["adapters"]
+      provider_adapters["provider adapters\nOpenAI / Anthropic / Google"]
+      tool_adapters["tool adapters\npython / http / subprocess"]
+      skill_adapters["skill adapters\nfilesystem"]
     end
 
-    subgraph CORE_CONTEXT["core/context"]
-      context_protocol["context/protocol"]
-      context_policy["context/policy"]
-      context_builder["context/builder"]
-      context_manager["context/manager"]
+    subgraph INFRA_DB["database"]
+      sqlite["sqlite builder"]
+      sqlalchemy["sqlalchemy store"]
     end
 
-    subgraph CORE_PROVIDER["core/provider"]
-      provider_protocol["provider/protocol"]
-      provider_factory["provider/factory"]
-      provider_registry["provider/registry"]
-      provider_manager["provider/manager"]
-    end
-
-    subgraph CORE_TOOL["core/tool"]
-      tool_protocol["tool/protocol"]
-      tool_registry["tool/registry"]
-      tool_manager["tool/manager"]
-    end
-
-    subgraph CORE_SKILL["core/skill"]
-      skill_protocol["skill/protocol"]
-      skill_policy["skill/policy"]
-      skill_selector["skill/selector"]
-      skill_registry["skill/registry"]
-      skill_manager["skill/manager"]
-    end
+    catalog["provider_catalog"]
   end
 
-  %% Infra
-  subgraph INFRA["infra"]
-    provider_catalog["provider_catalog"]
+  %% =====================
+  %% Core Layer
+  %% =====================
+  subgraph CORE["core：协议、规则、schema"]
+    direction TB
 
-    subgraph INFRA_BOOT["infra/bootstrap"]
-      provider_regs["bootstrap/registrations/providers"]
+    subgraph CORE_RUNTIME["runtime primitives"]
+      provider_core["provider\nfactory / registry / manager"]
+      context_core["context\nbuilder / manager / policy"]
+      tool_core["tool\nregistry / manager / protocol"]
+      skill_core["skill\nregistry / selector / manager"]
     end
 
-    subgraph PROVIDER_ADAPTERS["infra/adapters/providers"]
-      openai_compat["openai_compatible"]
-      openai_resp["openai_responses"]
-      anthropic["anthropic"]
-      google_genai["google_genai"]
-    end
-
-    subgraph TOOL_ADAPTERS["infra/adapters/tools"]
-      tools_common["tools/common"]
-      tool_python["python_callable"]
-      tool_http["http"]
-      tool_subprocess["subprocess"]
-    end
-
-    subgraph SKILL_ADAPTERS["infra/adapters/skills"]
-      skill_fs["filesystem"]
-    end
-
-    subgraph DATABASE["infra/database"]
-      db_sqlalchemy["database/sqlalchemy"]
-      db_sqlite["database/sqlite"]
+    subgraph CORE_BASE["base contracts"]
+      schemas["schema\nchat / message / tool / skill / context / provider"]
+      errors["errors\nbase / context / provider / tool / skill"]
     end
   end
 
-  %% Application edges
+  %% =====================
+  %% Main Dependency Flow
+  %% =====================
   app_boot --> app_runtime
-  app_boot --> provider_factory
-  app_boot --> provider_registry
-  app_boot --> provider_manager
-  app_boot --> context_builder
-  app_boot --> context_manager
-  app_boot --> context_protocol
-  app_boot --> skill_registry
-  app_boot --> skill_manager
-  app_boot --> tool_registry
-  app_boot --> tool_manager
-  app_boot --> tool_protocol
-  app_boot --> schema_provider
+  app_runtime --> app_chat
+
   app_boot --> provider_regs
-  app_boot --> skill_fs
-  app_boot --> db_sqlite
+  app_boot --> skill_adapters
+  app_boot --> sqlite
 
-  app_runtime --> provider_manager
-  app_runtime --> context_manager
-  app_runtime --> context_protocol
-  app_runtime --> skill_manager
-  app_runtime --> tool_manager
-  app_runtime --> tool_protocol
+  app_chat --> provider_core
+  app_chat --> context_core
+  app_chat --> skill_core
+  app_chat --> tool_core
 
-  app_chat --> app_runtime
-  app_chat --> context_protocol
-  app_chat --> provider_protocol
-  app_chat --> errors_base
-  app_chat --> schema_chat
-  app_chat --> schema_context
-  app_chat --> schema_message
-  app_chat --> schema_skill
-  app_chat --> schema_tool
+  provider_regs --> provider_adapters
+  provider_regs --> catalog
 
-  %% Core schema edges
-  schema_chat --> schema_message
-  schema_chat --> schema_tool
-  schema_context --> schema_message
+  provider_adapters --> provider_core
+  provider_adapters --> schemas
+  provider_adapters --> errors
 
-  %% Core errors edges
-  errors_context --> errors_base
-  errors_provider --> errors_base
-  errors_skill --> errors_base
-  errors_tool --> errors_base
+  tool_adapters --> tool_core
+  tool_adapters --> schemas
+  tool_adapters --> errors
 
-  %% Core context edges
-  context_protocol --> schema_context
-  context_protocol --> schema_message
-  context_policy --> errors_context
-  context_policy --> schema_context
-  context_builder --> context_protocol
-  context_builder --> context_policy
-  context_builder --> schema_context
-  context_builder --> schema_message
-  context_manager --> context_protocol
-  context_manager --> schema_context
+  skill_adapters --> skill_core
+  skill_adapters --> schemas
+  skill_adapters --> errors
 
-  %% Core provider edges
-  provider_protocol --> schema_chat
-  provider_protocol --> schema_provider
-  provider_factory --> provider_protocol
-  provider_factory --> schema_provider
-  provider_factory --> errors_base
-  provider_factory --> errors_provider
-  provider_registry --> schema_provider
-  provider_registry --> errors_base
-  provider_registry --> errors_provider
-  provider_manager --> provider_protocol
-  provider_manager --> schema_provider
-  provider_manager --> errors_base
+  sqlite --> sqlalchemy
+  sqlalchemy --> context_core
+  sqlalchemy --> schemas
+  sqlalchemy --> errors
 
-  %% Core tool edges
-  tool_protocol --> schema_tool
-  tool_registry --> tool_protocol
-  tool_registry --> schema_tool
-  tool_registry --> errors_base
-  tool_registry --> errors_tool
-  tool_manager --> tool_protocol
-  tool_manager --> schema_tool
+  provider_core --> schemas
+  provider_core --> errors
 
-  %% Core skill edges
-  skill_protocol --> schema_skill
-  skill_policy --> schema_skill
-  skill_selector --> skill_policy
-  skill_selector --> schema_skill
-  skill_registry --> schema_skill
-  skill_registry --> errors_base
-  skill_registry --> errors_skill
-  skill_manager --> skill_protocol
-  skill_manager --> skill_policy
-  skill_manager --> skill_selector
-  skill_manager --> schema_skill
+  context_core --> schemas
+  context_core --> errors
 
-  %% Provider adapters
-  openai_compat --> provider_protocol
-  openai_compat --> errors_provider
-  openai_compat --> schema_chat
-  openai_compat --> schema_message
-  openai_compat --> schema_provider
-  openai_compat --> schema_tool
+  tool_core --> schemas
+  tool_core --> errors
 
-  openai_resp --> provider_protocol
-  openai_resp --> errors_provider
-  openai_resp --> schema_chat
-  openai_resp --> schema_message
-  openai_resp --> schema_provider
-  openai_resp --> schema_tool
-  openai_resp -.-> openai_compat
+  skill_core --> schemas
+  skill_core --> errors
 
-  anthropic --> provider_protocol
-  anthropic --> errors_provider
-  anthropic --> schema_chat
-  anthropic --> schema_message
-  anthropic --> schema_provider
-  anthropic --> schema_tool
+  catalog --> schemas
 
-  google_genai --> provider_protocol
-  google_genai --> errors_provider
-  google_genai --> schema_chat
-  google_genai --> schema_message
-  google_genai --> schema_provider
-  google_genai --> schema_tool
-
-  %% Tool adapters
-  tools_common --> errors_tool
-  tools_common --> schema_tool
-  tool_python --> tools_common
-  tool_python --> errors_tool
-  tool_python --> schema_tool
-  tool_http --> tools_common
-  tool_http --> errors_tool
-  tool_http --> schema_tool
-  tool_subprocess --> tools_common
-  tool_subprocess --> errors_tool
-  tool_subprocess --> schema_tool
-
-  %% Skill adapters
-  skill_fs --> errors_skill
-  skill_fs --> schema_skill
-
-  %% Database
-  db_sqlite --> db_sqlalchemy
-  db_sqlalchemy --> context_protocol
-  db_sqlalchemy --> errors_context
-  db_sqlalchemy --> schema_context
-
-  %% Bootstrap / catalog
-  provider_regs --> provider_factory
-  provider_regs --> provider_registry
-  provider_regs --> provider_protocol
-  provider_regs --> schema_provider
-  provider_regs --> provider_catalog
-  provider_regs --> openai_compat
-  provider_regs --> openai_resp
-  provider_regs --> anthropic
-  provider_regs --> google_genai
-
-  provider_catalog --> schema_provider
-
+  %% =====================
   %% Styling
+  %% =====================
   classDef app fill:#e8f1ff,stroke:#3267c8,color:#111;
-  classDef core fill:#eef9f0,stroke:#2f8f46,color:#111;
   classDef infra fill:#fff4e6,stroke:#d18419,color:#111;
+  classDef core fill:#eef9f0,stroke:#2f8f46,color:#111;
+  classDef base fill:#f7f7f7,stroke:#777,color:#111;
 
   class app_boot,app_runtime,app_chat app;
-  class schema_chat,schema_context,schema_message,schema_provider,schema_skill,schema_tool,errors_base,errors_context,errors_provider,errors_skill,errors_tool,context_protocol,context_policy,context_builder,context_manager,provider_protocol,provider_factory,provider_registry,provider_manager,tool_protocol,tool_registry,tool_manager,skill_protocol,skill_policy,skill_selector,skill_registry,skill_manager core;
-  class provider_catalog,provider_regs,openai_compat,openai_resp,anthropic,google_genai,tools_common,tool_python,tool_http,tool_subprocess,skill_fs,db_sqlalchemy,db_sqlite infra;
+  class provider_regs,provider_adapters,tool_adapters,skill_adapters,sqlite,sqlalchemy,catalog infra;
+  class provider_core,context_core,tool_core,skill_core core;
+  class schemas,errors base;
 ```
