@@ -25,8 +25,11 @@ from cyreneAI.core.schema.message import (
     MessageRole,
 )
 from cyreneAI.core.schema.provider import ProviderConfig, ProviderInfo, ProviderType
+from cyreneAI.core.schema.tool import ToolCall, ToolDefinition, ToolResult
 from cyreneAI.core.schema.vector import VectorRecord
 from cyreneAI.core.schema.context import ContextSegmentRole
+from cyreneAI.core.tool.manager import ToolManager
+from cyreneAI.core.tool.registry import ToolRegistry
 from cyreneAI.core.vector.manager import VectorManager
 from cyreneAI.infra.adapters.vector_stores.memory.store import InMemoryVectorStore
 
@@ -80,6 +83,15 @@ class FakeRAGProvider:
 
     async def close(self) -> None:
         pass
+
+
+class FakeToolExecutor:
+    async def execute(self, call: ToolCall) -> ToolResult:
+        return ToolResult(
+            call_id=call.id,
+            name=call.name,
+            content=f"executed:{call.name}",
+        )
 
 
 async def _build_provider_manager(provider: FakeRAGProvider) -> ProviderManager:
@@ -189,6 +201,43 @@ def test_rag_chat_orchestrator_retrieves_context_and_calls_chat_provider() -> No
         assert retrieved_segment.metadata == {"match_count": 1}
         assert retrieved_segment.items[0].metadata["record_id"] == "doc-1:chunk:0"
         assert retrieved_segment.items[0].metadata["score"] == 1.0
+
+    asyncio.run(run())
+
+
+def test_rag_chat_orchestrator_passes_allowed_tool_names_to_chat() -> None:
+    async def run() -> None:
+        provider = FakeRAGProvider()
+        runtime = await _build_runtime(provider)
+        tool_registry = ToolRegistry()
+        tool_registry.register(
+            ToolDefinition(name="lookup", description="Lookup a value."),
+            FakeToolExecutor(),
+        )
+        tool_registry.register(
+            ToolDefinition(name="delete", description="Delete a value."),
+            FakeToolExecutor(),
+        )
+        runtime.tool_registry = tool_registry
+        runtime.tool_manager = ToolManager(tool_registry)
+
+        await RAGChatOrchestrator(runtime).chat(
+            ApplicationRAGChatRequest(
+                session_id="session-1",
+                provider_id="provider-1",
+                model="chat-model",
+                retrieval_provider_id="provider-1",
+                retrieval_model="embed-model",
+                messages=[_message(MessageRole.USER, "Where do adapters live?")],
+                retrieval_top_k=1,
+                collection_id="collection-1",
+                allowed_tool_names=["lookup"],
+            )
+        )
+
+        chat_tools = provider.chat_requests[0].tools
+        assert chat_tools is not None
+        assert [tool.name for tool in chat_tools] == ["lookup"]
 
     asyncio.run(run())
 

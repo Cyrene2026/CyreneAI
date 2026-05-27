@@ -83,6 +83,24 @@ def test_filesystem_document_loader_can_disable_recursion(tmp_path) -> None:
     assert [document.document_id for document in documents] == ["alpha.md"]
 
 
+def test_filesystem_document_loader_rejects_oversized_file(tmp_path) -> None:
+    file_path = tmp_path / "alpha.md"
+    file_path.write_text("abcdef", encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        FileSystemDocumentLoader(file_path, max_file_bytes=5).load()
+
+
+def test_filesystem_document_loader_rejects_too_many_documents(tmp_path) -> None:
+    docs_path = tmp_path / "docs"
+    docs_path.mkdir()
+    (docs_path / "alpha.md").write_text("alpha", encoding="utf-8")
+    (docs_path / "beta.md").write_text("beta", encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        FileSystemDocumentLoader(docs_path, max_documents=1).load()
+
+
 def test_filesystem_document_loader_rejects_missing_path(tmp_path) -> None:
     with pytest.raises(FileNotFoundError):
         FileSystemDocumentLoader(tmp_path / "missing").load()

@@ -102,6 +102,30 @@ def test_csv_document_loader_supports_custom_delimiter(tmp_path) -> None:
     assert documents[0].content == "alpha"
 
 
+def test_csv_document_loader_rejects_oversized_file(tmp_path) -> None:
+    file_path = tmp_path / "articles.csv"
+    file_path.write_text("text\nabcdef\n", encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        CsvDocumentLoader(
+            file_path,
+            content_field="text",
+            max_file_bytes=5,
+        ).load()
+
+
+def test_csv_document_loader_rejects_too_many_documents(tmp_path) -> None:
+    file_path = tmp_path / "articles.csv"
+    file_path.write_text("text\nalpha\nbeta\n", encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        CsvDocumentLoader(
+            file_path,
+            content_field="text",
+            max_documents=1,
+        ).load()
+
+
 def test_csv_document_loader_rejects_missing_path(tmp_path) -> None:
     with pytest.raises(FileNotFoundError):
         CsvDocumentLoader(

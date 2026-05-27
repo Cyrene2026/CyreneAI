@@ -29,8 +29,14 @@ class SQLiteVectorStore(VectorStoreProtocol):
     SQLite 向量存储。
     """
 
-    def __init__(self, engine: AsyncEngine) -> None:
+    def __init__(
+        self,
+        engine: AsyncEngine,
+        *,
+        max_search_candidates: int = 10_000,
+    ) -> None:
         self._engine = engine
+        self._max_search_candidates = max_search_candidates
 
     async def upsert(self, records: list[VectorRecord]) -> None:
         """
@@ -101,10 +107,18 @@ class SQLiteVectorStore(VectorStoreProtocol):
         _validate_vector(query.vector, label="query")
         try:
             async with self._engine.connect() as connection:
-                result = await connection.execute(select(vector_records.c.payload))
+                statement = select(vector_records.c.payload)
+                if self._max_search_candidates >= 0:
+                    statement = statement.limit(self._max_search_candidates + 1)
+                result = await connection.execute(statement)
                 payloads = result.scalars().all()
         except SQLAlchemyError as exc:
             raise VectorStoreError("Failed to search vector records", cause=exc) from exc
+        if (
+            self._max_search_candidates >= 0
+            and len(payloads) > self._max_search_candidates
+        ):
+            raise VectorStoreError("Vector search exceeded maximum candidate count")
 
         records = [_map_vector_record(payload) for payload in payloads]
         matches: list[VectorSearchMatch] = []

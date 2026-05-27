@@ -26,13 +26,17 @@ async def create_sqlite_vector_store(
     path: str | Path,
     *,
     echo: bool = False,
+    max_search_candidates: int = 10_000,
 ) -> SQLiteVectorStore:
     """
     创建 SQLite 向量存储。
     """
     engine = create_sqlite_vector_engine(path, echo=echo)
     await create_vector_tables(engine)
-    return SQLiteVectorStore(engine)
+    return SQLiteVectorStore(
+        engine,
+        max_search_candidates=max_search_candidates,
+    )
 
 
 def _build_sqlite_url(path: str | Path) -> str:

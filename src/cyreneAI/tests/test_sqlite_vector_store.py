@@ -6,7 +6,11 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy import insert
 
-from cyreneAI.core.errors.vector import VectorInputError, VectorNotFoundError
+from cyreneAI.core.errors.vector import (
+    VectorInputError,
+    VectorNotFoundError,
+    VectorStoreError,
+)
 from cyreneAI.core.schema.vector import VectorQuery, VectorRecord
 from cyreneAI.infra.adapters.vector_stores.sqlite.builder import (
     create_sqlite_vector_engine,
@@ -105,6 +109,32 @@ async def _run_sqlite_vector_store_persists_across_instances(database_path) -> N
 def test_sqlite_vector_store_persists_across_instances(tmp_path) -> None:
     asyncio.run(
         _run_sqlite_vector_store_persists_across_instances(tmp_path / "vectors.db")
+    )
+
+
+async def _run_sqlite_vector_store_rejects_too_many_search_candidates(
+    database_path,
+) -> None:
+    store = await create_sqlite_vector_store(database_path, max_search_candidates=1)
+    try:
+        await store.upsert(
+            [
+                VectorRecord(record_id="record-1", vector=[1.0, 0.0]),
+                VectorRecord(record_id="record-2", vector=[0.0, 1.0]),
+            ]
+        )
+
+        with pytest.raises(VectorStoreError):
+            await store.search(VectorQuery(vector=[1.0, 0.0]))
+    finally:
+        await store.close()
+
+
+def test_sqlite_vector_store_rejects_too_many_search_candidates(tmp_path) -> None:
+    asyncio.run(
+        _run_sqlite_vector_store_rejects_too_many_search_candidates(
+            tmp_path / "vectors.db"
+        )
     )
 
 

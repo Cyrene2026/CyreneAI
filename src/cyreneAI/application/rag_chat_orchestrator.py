@@ -71,6 +71,7 @@ class ApplicationRAGChatRequest(CyreneAISchema):
     max_tokens: int | None = None
     stream: bool = False
     tool_choice: ToolChoice | None = None
+    allowed_tool_names: list[str] | None = None
     max_tool_rounds: int = Field(default=1, ge=0)
 
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -141,6 +142,7 @@ class RAGChatOrchestrator:
                 max_tokens=request.max_tokens,
                 stream=request.stream,
                 tool_choice=request.tool_choice,
+                allowed_tool_names=request.allowed_tool_names,
                 max_tool_rounds=request.max_tool_rounds,
                 metadata={
                     **request.metadata,

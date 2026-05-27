@@ -34,7 +34,12 @@ def map_tool_result(
     将通用工具返回值映射为 ToolResult
     """
     if isinstance(result, ToolResult):
-        return result
+        return result.model_copy(
+            update={
+                "call_id": call.id,
+                "name": call.name,
+            }
+        )
 
     content = (
         json.dumps(result, ensure_ascii=False)
@@ -59,8 +64,8 @@ def map_tool_result_object(call: ToolCall, payload: dict[str, Any]) -> ToolResul
 
         content = payload.get("content")
         return ToolResult(
-            call_id=str(payload.get("call_id", call.id)),
-            name=str(payload.get("name", call.name)),
+            call_id=call.id,
+            name=call.name,
             content=_stringify_content(content),
             success=bool(payload.get("success", True)),
             error=_stringify_error(payload.get("error")),

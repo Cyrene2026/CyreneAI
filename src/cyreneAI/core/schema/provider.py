@@ -83,7 +83,7 @@ class ProviderConfig(ProviderBase):
 
     provider_id: str
     provider_type: ProviderType
-    api_key: str | None = None
+    api_key: str | None = Field(default=None, repr=False)
     base_url: str | None = None
     timeout: timedelta | None = Field(
         default=None, ge=timedelta(seconds=0), description="请求超时时间"

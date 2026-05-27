@@ -8,6 +8,7 @@ from pydantic import Field
 from cyreneAI.application.runtime import CyreneAIRuntime
 from cyreneAI.core.context.context_protocol import ContextBuilderProtocol
 from cyreneAI.core.errors.base import StateError, UnsupportedError
+from cyreneAI.core.errors.tool import ToolExecutionError
 from cyreneAI.core.provider.provider_protocol import ChatProviderProtocol
 from cyreneAI.core.schema.base import CyreneAISchema
 from cyreneAI.core.schema.chat import ChatRequest, ChatResponse
@@ -49,6 +50,7 @@ class ApplicationChatRequest(CyreneAISchema):
     max_tokens: int | None = None
     stream: bool = False
     tool_choice: ToolChoice | None = None
+    allowed_tool_names: list[str] | None = None
     max_tool_rounds: int = Field(default=1, ge=0)
 
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -91,10 +93,15 @@ class ChatOrchestrator:
             await self._runtime.context_manager.save(context_snapshot)
 
         skill_bundle = self._build_skill_bundle(request)
+        allowed_tool_names = _resolve_allowed_tool_names(
+            request_allowed_tool_names=request.allowed_tool_names,
+            skill_bundle=skill_bundle,
+        )
         provider_request = self._build_provider_request(
             request=request,
             context_window=context_window,
             skill_bundle=skill_bundle,
+            allowed_tool_names=allowed_tool_names,
         )
         provider = self._get_chat_provider(request.provider_id)
         response = await provider.chat(provider_request)
@@ -103,6 +110,7 @@ class ChatOrchestrator:
             provider=provider,
             provider_request=provider_request,
             response=response,
+            allowed_tool_names=allowed_tool_names,
         )
 
         return ApplicationChatResult(
@@ -124,6 +132,7 @@ class ChatOrchestrator:
         provider: ChatProviderProtocol,
         provider_request: ChatRequest,
         response: ChatResponse,
+        allowed_tool_names: set[str] | None,
     ) -> tuple[ChatResponse, list[ToolResult]]:
         tool_results: list[ToolResult] = []
         current_request = provider_request
@@ -133,7 +142,10 @@ class ChatOrchestrator:
             if not current_response.tool_calls:
                 break
 
-            round_results = await self._execute_tool_calls(current_response)
+            round_results = await self._execute_tool_calls(
+                current_response,
+                allowed_tool_names=allowed_tool_names,
+            )
             tool_results.extend(round_results)
             current_request = _append_tool_feedback_messages(
                 request=current_request,
@@ -180,8 +192,13 @@ class ChatOrchestrator:
         request: ApplicationChatRequest,
         context_window: ContextWindow,
         skill_bundle: SkillInstructionBundle | None,
+        allowed_tool_names: set[str] | None,
     ) -> ChatRequest:
-        tools = self._list_tool_definitions()
+        tools = self._list_tool_definitions(allowed_tool_names=allowed_tool_names)
+        tool_choice = _filter_tool_choice(
+            tool_choice=request.tool_choice,
+            tools=tools,
+        )
         return ChatRequest(
             provider_id=request.provider_id,
             model=request.model,
@@ -193,7 +210,7 @@ class ChatOrchestrator:
             max_tokens=request.max_tokens,
             stream=request.stream,
             tools=tools or None,
-            tool_choice=request.tool_choice,
+            tool_choice=tool_choice,
             metadata={
                 **request.metadata,
                 "session_id": request.session_id,
@@ -206,10 +223,21 @@ class ChatOrchestrator:
             },
         )
 
-    def _list_tool_definitions(self) -> list[ToolDefinition]:
+    def _list_tool_definitions(
+        self,
+        *,
+        allowed_tool_names: set[str] | None,
+    ) -> list[ToolDefinition]:
         if self._runtime.tool_registry is None:
             return []
-        return self._runtime.tool_registry.list_definitions()
+        definitions = self._runtime.tool_registry.list_definitions()
+        if allowed_tool_names is None:
+            return definitions
+        return [
+            definition
+            for definition in definitions
+            if definition.name in allowed_tool_names
+        ]
 
     def _get_chat_provider(self, provider_id: str) -> ChatProviderProtocol:
         provider = self._runtime.provider_manager.get(provider_id)
@@ -221,6 +249,8 @@ class ChatOrchestrator:
     async def _execute_tool_calls(
         self,
         response: ChatResponse,
+        *,
+        allowed_tool_names: set[str] | None,
     ) -> list[ToolResult]:
         if not response.tool_calls:
             return []
@@ -230,6 +260,10 @@ class ChatOrchestrator:
 
         results: list[ToolResult] = []
         for call in response.tool_calls:
+            if allowed_tool_names is not None and call.name not in allowed_tool_names:
+                raise ToolExecutionError(
+                    f"Tool {call.name} is not allowed for this chat request"
+                )
             results.append(await self._runtime.tool_manager.execute(call))
         return results
 
@@ -265,6 +299,43 @@ def _append_context_segments(
             ]
         }
     )
+
+
+def _resolve_allowed_tool_names(
+    *,
+    request_allowed_tool_names: list[str] | None,
+    skill_bundle: SkillInstructionBundle | None,
+) -> set[str] | None:
+    allowed_tool_names = (
+        set(request_allowed_tool_names)
+        if request_allowed_tool_names is not None
+        else None
+    )
+    if skill_bundle is None:
+        return allowed_tool_names
+
+    skill_allowed_tool_names = set(skill_bundle.allowed_tools)
+    if allowed_tool_names is None:
+        return skill_allowed_tool_names
+    return allowed_tool_names & skill_allowed_tool_names
+
+
+def _filter_tool_choice(
+    *,
+    tool_choice: ToolChoice | None,
+    tools: list[ToolDefinition],
+) -> ToolChoice | None:
+    if tool_choice is None:
+        return None
+    if not tools:
+        return None
+    if tool_choice.mode != "tool":
+        return tool_choice
+
+    tool_names = {tool.name for tool in tools}
+    if tool_choice.name not in tool_names:
+        return None
+    return tool_choice
 
 
 def _build_provider_messages(

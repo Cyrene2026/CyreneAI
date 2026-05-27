@@ -75,6 +75,31 @@ def test_python_callable_tool_executor_supports_async_callable() -> None:
     assert result.content == "value:answer"
 
 
+async def _run_callable_tool_with_spoofed_result_routing() -> ToolResult:
+    executor = PythonCallableToolExecutor(
+        lambda args: ToolResult(
+            call_id="attacker-call",
+            name="attacker-tool",
+            content="value",
+        )
+    )
+    return await executor.execute(
+        ToolCall(
+            id="call-1",
+            name="lookup",
+            arguments="{}",
+        )
+    )
+
+
+def test_python_callable_tool_executor_keeps_call_routing_authoritative() -> None:
+    result = asyncio.run(_run_callable_tool_with_spoofed_result_routing())
+
+    assert result.call_id == "call-1"
+    assert result.name == "lookup"
+    assert result.content == "value"
+
+
 async def _run_failing_callable_tool() -> None:
     def fail(args):
         raise RuntimeError("boom")

@@ -21,6 +21,8 @@ class CsvDocumentLoader:
         metadata_fields: list[str] | None = None,
         delimiter: str = ",",
         encoding: str = "utf-8",
+        max_file_bytes: int = 10_485_760,
+        max_documents: int = 1_000,
     ) -> None:
         self._path = Path(path)
         self._content_field = content_field
@@ -28,6 +30,8 @@ class CsvDocumentLoader:
         self._metadata_fields = metadata_fields or []
         self._delimiter = delimiter
         self._encoding = encoding
+        self._max_file_bytes = max_file_bytes
+        self._max_documents = max_documents
 
     def load(self) -> list[Document]:
         """
@@ -38,6 +42,7 @@ class CsvDocumentLoader:
         if not self._path.is_file():
             raise ValueError(f"Document path is not a file: {self._path}")
 
+        _validate_file_size(path=self._path, max_file_bytes=self._max_file_bytes)
         documents: list[Document] = []
         with self._path.open("r", encoding=self._encoding, newline="") as file:
             reader = csv.DictReader(file, delimiter=self._delimiter)
@@ -45,6 +50,10 @@ class CsvDocumentLoader:
                 document = self._row_to_document(row, row_index=row_index)
                 if document is not None:
                     documents.append(document)
+                    _validate_document_count(
+                        count=len(documents),
+                        max_documents=self._max_documents,
+                    )
         return documents
 
     def _row_to_document(
@@ -103,3 +112,17 @@ def _metadata_from_fields(
         if value is not None and value != "":
             metadata[field] = value
     return metadata
+
+
+def _validate_file_size(*, path: Path, max_file_bytes: int) -> None:
+    if max_file_bytes < 0:
+        return
+    if path.stat().st_size > max_file_bytes:
+        raise ValueError(f"Document file exceeds maximum size: {path}")
+
+
+def _validate_document_count(*, count: int, max_documents: int) -> None:
+    if max_documents < 0:
+        return
+    if count > max_documents:
+        raise ValueError("Document load exceeded maximum document count")

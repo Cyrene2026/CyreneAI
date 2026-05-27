@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 from datetime import timedelta
 
+import pytest
+
 from cyreneAI.application.chat_orchestrator import (
     ApplicationChatRequest,
     ChatOrchestrator,
@@ -12,6 +14,7 @@ from cyreneAI.core.context.builder import ContextWindowBuilder
 from cyreneAI.core.context.manager import ContextManager
 from cyreneAI.core.provider.factory import ProviderFactory
 from cyreneAI.core.provider.manager import ProviderManager
+from cyreneAI.core.errors.tool import ToolExecutionError
 from cyreneAI.core.schema.chat import ChatFinishReason, ChatRequest, ChatResponse
 from cyreneAI.core.schema.context import (
     ContextBuildRequest,
@@ -32,7 +35,7 @@ from cyreneAI.core.schema.message import (
 )
 from cyreneAI.core.schema.provider import ProviderConfig, ProviderInfo, ProviderType
 from cyreneAI.core.schema.skill import SkillDefinition
-from cyreneAI.core.schema.tool import ToolCall, ToolDefinition, ToolResult
+from cyreneAI.core.schema.tool import ToolCall, ToolChoice, ToolDefinition, ToolResult
 from cyreneAI.core.skill.manager import SkillManager
 from cyreneAI.core.skill.registry import SkillRegistry
 from cyreneAI.core.tool.manager import ToolManager
@@ -113,6 +116,19 @@ class FakeToolExecutor:
         )
 
 
+class RecordingToolExecutor:
+    def __init__(self) -> None:
+        self.calls: list[ToolCall] = []
+
+    async def execute(self, call: ToolCall) -> ToolResult:
+        self.calls.append(call)
+        return ToolResult(
+            call_id=call.id,
+            name=call.name,
+            content=f"executed:{call.name}",
+        )
+
+
 class ContentOnlyContextBuilder:
     async def build(self, request: ContextBuildRequest) -> ContextBuildResult:
         return ContextBuildResult(
@@ -180,6 +196,7 @@ async def _run_chat_orchestrator_request() -> None:
             description="Use memory.",
             instructions="Prefer relevant memory.",
             triggers=["memory"],
+            allowed_tools=["lookup"],
         )
     )
     tool_registry = ToolRegistry()
@@ -245,6 +262,128 @@ async def _run_chat_orchestrator_request() -> None:
 
 def test_chat_orchestrator_builds_context_skills_tools_and_calls_provider() -> None:
     asyncio.run(_run_chat_orchestrator_request())
+
+
+async def _run_chat_orchestrator_filters_tools_by_request_and_skill() -> None:
+    provider = FakeChatProvider(
+        ChatResponse(
+            provider_id="provider-1",
+            model="fake-model",
+            message=_message(MessageRole.ASSISTANT, "hello"),
+            finish_reason=ChatFinishReason.STOP,
+        )
+    )
+    provider_manager = await _build_provider_manager(provider)
+    skill_registry = SkillRegistry()
+    skill_registry.register(
+        SkillDefinition(
+            name="memory",
+            description="Use memory.",
+            instructions="Prefer relevant memory.",
+            triggers=["memory"],
+            allowed_tools=["lookup", "delete"],
+        )
+    )
+    tool_registry = ToolRegistry()
+    tool_registry.register(
+        ToolDefinition(name="lookup", description="Lookup a value."),
+        FakeToolExecutor(),
+    )
+    tool_registry.register(
+        ToolDefinition(name="delete", description="Delete a value."),
+        FakeToolExecutor(),
+    )
+    runtime = CyreneAIRuntime(
+        provider_manager=provider_manager,
+        context_builder=ContextWindowBuilder(),
+        skill_manager=SkillManager(skill_registry),
+        tool_registry=tool_registry,
+        tool_manager=ToolManager(tool_registry),
+    )
+
+    await ChatOrchestrator(runtime).chat(
+        ApplicationChatRequest(
+            session_id="session-1",
+            provider_id="provider-1",
+            model="fake-model",
+            messages=[_message(MessageRole.USER, "Use memory.")],
+            tool_choice=ToolChoice(mode="tool", name="delete"),
+            allowed_tool_names=["lookup"],
+        )
+    )
+
+    provider_tools = provider.requests[0].tools
+    assert provider_tools is not None
+    assert [tool.name for tool in provider_tools] == ["lookup"]
+    assert provider.requests[0].tool_choice is None
+
+
+def test_chat_orchestrator_filters_tools_by_request_and_skill() -> None:
+    asyncio.run(_run_chat_orchestrator_filters_tools_by_request_and_skill())
+
+
+async def _run_chat_orchestrator_rejects_disallowed_tool_call() -> None:
+    provider = FakeChatProvider(
+        ChatResponse(
+            provider_id="provider-1",
+            model="fake-model",
+            tool_calls=[
+                ToolCall(
+                    id="call-1",
+                    name="delete",
+                    arguments="{\"key\":\"value\"}",
+                )
+            ],
+            finish_reason=ChatFinishReason.TOOL_CALLS,
+        )
+    )
+    provider_manager = await _build_provider_manager(provider)
+    skill_registry = SkillRegistry()
+    skill_registry.register(
+        SkillDefinition(
+            name="memory",
+            description="Use memory.",
+            instructions="Prefer relevant memory.",
+            triggers=["memory"],
+            allowed_tools=["lookup"],
+        )
+    )
+    delete_executor = RecordingToolExecutor()
+    tool_registry = ToolRegistry()
+    tool_registry.register(
+        ToolDefinition(name="lookup", description="Lookup a value."),
+        RecordingToolExecutor(),
+    )
+    tool_registry.register(
+        ToolDefinition(name="delete", description="Delete a value."),
+        delete_executor,
+    )
+    runtime = CyreneAIRuntime(
+        provider_manager=provider_manager,
+        context_builder=ContextWindowBuilder(),
+        skill_manager=SkillManager(skill_registry),
+        tool_registry=tool_registry,
+        tool_manager=ToolManager(tool_registry),
+    )
+
+    with pytest.raises(ToolExecutionError):
+        await ChatOrchestrator(runtime).chat(
+            ApplicationChatRequest(
+                session_id="session-1",
+                provider_id="provider-1",
+                model="fake-model",
+                messages=[_message(MessageRole.USER, "Use memory.")],
+            )
+        )
+
+    assert delete_executor.calls == []
+    assert len(provider.requests) == 1
+    assert provider.requests[0].tools is not None
+    assert [tool.name for tool in provider.requests[0].tools] == ["lookup"]
+
+
+def test_chat_orchestrator_rejects_disallowed_tool_call() -> None:
+    asyncio.run(_run_chat_orchestrator_rejects_disallowed_tool_call())
 
 
 async def _run_chat_orchestrator_without_optional_managers() -> None:

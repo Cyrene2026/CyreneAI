@@ -17,17 +17,21 @@ class FileSystemDocumentLoader:
         extensions: set[str] | None = None,
         recursive: bool = True,
         encoding: str = "utf-8",
+        max_file_bytes: int = 10_485_760,
+        max_documents: int = 1_000,
     ) -> None:
         self._path = Path(path)
         self._extensions = _normalize_extensions(extensions or {".md", ".txt"})
         self._recursive = recursive
         self._encoding = encoding
+        self._max_file_bytes = max_file_bytes
+        self._max_documents = max_documents
 
     def load(self) -> list[Document]:
         """
         加载支持的文本文件为 Document。
         """
-        return [
+        documents = [
             document
             for document in (
                 self._load_file(path)
@@ -35,6 +39,11 @@ class FileSystemDocumentLoader:
             )
             if document is not None
         ]
+        _validate_document_count(
+            count=len(documents),
+            max_documents=self._max_documents,
+        )
+        return documents
 
     def _iter_files(self) -> list[Path]:
         if self._path.is_file():
@@ -56,6 +65,7 @@ class FileSystemDocumentLoader:
         return path.is_file() and path.suffix.lower() in self._extensions
 
     def _load_file(self, path: Path) -> Document | None:
+        _validate_file_size(path=path, max_file_bytes=self._max_file_bytes)
         content = path.read_text(encoding=self._encoding)
         if not content:
             return None
@@ -88,3 +98,17 @@ def _relative_path(*, path: Path, root: Path) -> Path:
         return path.relative_to(root)
     except ValueError:
         return Path(path.name)
+
+
+def _validate_file_size(*, path: Path, max_file_bytes: int) -> None:
+    if max_file_bytes < 0:
+        return
+    if path.stat().st_size > max_file_bytes:
+        raise ValueError(f"Document file exceeds maximum size: {path}")
+
+
+def _validate_document_count(*, count: int, max_documents: int) -> None:
+    if max_documents < 0:
+        return
+    if count > max_documents:
+        raise ValueError("Document load exceeded maximum document count")

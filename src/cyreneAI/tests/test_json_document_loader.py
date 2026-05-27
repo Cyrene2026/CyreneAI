@@ -157,6 +157,33 @@ def test_json_document_loader_uses_fallback_document_ids(tmp_path) -> None:
     assert documents[0].document_id == "articles.json:0"
 
 
+def test_json_document_loader_rejects_oversized_file(tmp_path) -> None:
+    file_path = tmp_path / "articles.json"
+    file_path.write_text(json.dumps([{"text": "abcdef"}]), encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        JsonDocumentLoader(
+            file_path,
+            content_field="text",
+            max_file_bytes=5,
+        ).load()
+
+
+def test_json_document_loader_rejects_too_many_documents(tmp_path) -> None:
+    file_path = tmp_path / "articles.json"
+    file_path.write_text(
+        json.dumps([{"text": "alpha"}, {"text": "beta"}]),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError):
+        JsonDocumentLoader(
+            file_path,
+            content_field="text",
+            max_documents=1,
+        ).load()
+
+
 def test_json_document_loader_rejects_missing_path(tmp_path) -> None:
     with pytest.raises(FileNotFoundError):
         JsonDocumentLoader(

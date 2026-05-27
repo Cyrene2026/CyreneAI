@@ -21,6 +21,8 @@ class JsonDocumentLoader:
         metadata_fields: list[str] | None = None,
         root_path: list[str | int] | None = None,
         encoding: str = "utf-8",
+        max_file_bytes: int = 10_485_760,
+        max_documents: int = 1_000,
     ) -> None:
         self._path = Path(path)
         self._content_field = content_field
@@ -28,6 +30,8 @@ class JsonDocumentLoader:
         self._metadata_fields = metadata_fields or []
         self._root_path = root_path or []
         self._encoding = encoding
+        self._max_file_bytes = max_file_bytes
+        self._max_documents = max_documents
 
     def load(self) -> list[Document]:
         """
@@ -38,6 +42,7 @@ class JsonDocumentLoader:
         if not self._path.is_file():
             raise ValueError(f"Document path is not a file: {self._path}")
 
+        _validate_file_size(path=self._path, max_file_bytes=self._max_file_bytes)
         records = (
             self._load_jsonl_records()
             if self._path.suffix.lower() == ".jsonl"
@@ -48,10 +53,14 @@ class JsonDocumentLoader:
             document = self._record_to_document(record, index=index)
             if document is not None:
                 documents.append(document)
+                _validate_document_count(
+                    count=len(documents),
+                    max_documents=self._max_documents,
+                )
         return documents
 
     def _load_json_records(self) -> list[dict[str, Any]]:
-        payload = json.loads(self._path.read_text(encoding=self._encoding))
+        payload = json.loads(_read_text(self._path, encoding=self._encoding))
         payload = _resolve_root_path(payload, self._root_path)
         if isinstance(payload, dict):
             return [payload]
@@ -66,7 +75,7 @@ class JsonDocumentLoader:
     def _load_jsonl_records(self) -> list[dict[str, Any]]:
         records: list[dict[str, Any]] = []
         for line_number, line in enumerate(
-            self._path.read_text(encoding=self._encoding).splitlines(),
+            _read_text(self._path, encoding=self._encoding).splitlines(),
             start=1,
         ):
             if not line.strip():
@@ -155,3 +164,21 @@ def _metadata_from_fields(
         if value is not None:
             metadata[field] = value
     return metadata
+
+
+def _read_text(path: Path, *, encoding: str) -> str:
+    return path.read_text(encoding=encoding)
+
+
+def _validate_file_size(*, path: Path, max_file_bytes: int) -> None:
+    if max_file_bytes < 0:
+        return
+    if path.stat().st_size > max_file_bytes:
+        raise ValueError(f"Document file exceeds maximum size: {path}")
+
+
+def _validate_document_count(*, count: int, max_documents: int) -> None:
+    if max_documents < 0:
+        return
+    if count > max_documents:
+        raise ValueError("Document load exceeded maximum document count")
