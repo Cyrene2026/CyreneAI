@@ -109,6 +109,36 @@ def test_google_genai_instance_requires_api_key() -> None:
         )
 
 
+def test_google_genai_instance_passes_base_url_to_client(monkeypatch) -> None:
+    captured: dict[str, Any] = {}
+
+    def build_client(**kwargs: Any) -> _FakeGoogleClient:
+        captured.update(kwargs)
+        return _FakeGoogleClient(_FakeModels(response=_response()))
+
+    monkeypatch.setattr(
+        "cyreneAI.infra.adapters.providers.google_genai.instance.genai.Client",
+        build_client,
+    )
+    config = ProviderConfig(
+        provider_id="google-test",
+        provider_type=ProviderType.GOOGLE,
+        api_key="test-key",
+        base_url="https://third-party.example",
+        timeout=timedelta(milliseconds=2500),
+    )
+
+    instance = GoogleGenAIProviderInstance(
+        config=config,
+        info=_provider_info(),
+    )
+
+    assert captured["api_key"] == "test-key"
+    assert captured["http_options"].base_url == "https://third-party.example"
+    assert captured["http_options"].timeout == 3
+    assert instance.timeout == 2.5
+
+
 def test_google_genai_instance_chat_maps_payload_and_response() -> None:
     async def run() -> None:
         models = _FakeModels(response=_response())
