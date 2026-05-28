@@ -5,15 +5,15 @@ import asyncio
 import pytest
 
 from cyreneAI.application.runtime import CyreneAIRuntime
-from cyreneAI.application.vector_store_orchestrator import (
-    ApplicationVectorSearchRequest,
-    ApplicationVectorUpsertRequest,
-    VectorStoreOrchestrator,
-)
+from cyreneAI.application.vector_store_orchestrator import VectorStoreOrchestrator
 from cyreneAI.core.context.builder import ContextWindowBuilder
 from cyreneAI.core.errors.base import StateError
 from cyreneAI.core.provider.factory import ProviderFactory
 from cyreneAI.core.provider.manager import ProviderManager
+from cyreneAI.core.schema.application import (
+    ApplicationVectorSearchRequest,
+    ApplicationVectorUpsertRequest,
+)
 from cyreneAI.core.schema.vector import VectorRecord
 from cyreneAI.core.vector.manager import VectorManager
 from cyreneAI.infra.adapters.vector_stores.memory.store import InMemoryVectorStore

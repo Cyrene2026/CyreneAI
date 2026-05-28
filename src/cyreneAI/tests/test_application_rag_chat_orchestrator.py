@@ -3,15 +3,12 @@ from __future__ import annotations
 import asyncio
 from datetime import timedelta
 
-from cyreneAI.application.rag_chat_orchestrator import (
-    ApplicationRAGChatRequest,
-    RAGContextFormat,
-    RAGChatOrchestrator,
-)
+from cyreneAI.application.rag_chat_orchestrator import RAGChatOrchestrator
 from cyreneAI.application.runtime import CyreneAIRuntime
 from cyreneAI.core.context.builder import ContextWindowBuilder
 from cyreneAI.core.provider.factory import ProviderFactory
 from cyreneAI.core.provider.manager import ProviderManager
+from cyreneAI.core.schema.application import ApplicationRAGChatRequest, RAGContextFormat
 from cyreneAI.core.schema.chat import ChatFinishReason, ChatRequest, ChatResponse
 from cyreneAI.core.schema.embedding import (
     EmbeddingRequest,

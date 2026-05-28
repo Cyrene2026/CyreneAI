@@ -5,10 +5,10 @@ import json
 
 import pytest
 
-from cyreneAI.application.bootstrap import build_cyrene_ai_runtime
 from cyreneAI.core.schema.skill import SkillSelectionRequest
 from cyreneAI.core.schema.tool import ToolCall, ToolDefinition, ToolResult
 from cyreneAI.core.schema.vector import VectorQuery, VectorRecord
+from cyreneAI.infra.bootstrap import build_cyrene_ai_runtime
 from cyreneAI.infra.adapters.vector_stores.memory.store import InMemoryVectorStore
 
 

@@ -5,15 +5,13 @@ from datetime import timedelta
 
 import pytest
 
-from cyreneAI.application.retrieval_orchestrator import (
-    ApplicationRetrievalRequest,
-    RetrievalOrchestrator,
-)
+from cyreneAI.application.retrieval_orchestrator import RetrievalOrchestrator
 from cyreneAI.application.runtime import CyreneAIRuntime
 from cyreneAI.core.context.builder import ContextWindowBuilder
 from cyreneAI.core.errors.base import StateError, UnsupportedError
 from cyreneAI.core.provider.factory import ProviderFactory
 from cyreneAI.core.provider.manager import ProviderManager
+from cyreneAI.core.schema.application import ApplicationRetrievalRequest
 from cyreneAI.core.schema.embedding import (
     EmbeddingRequest,
     EmbeddingResponse,

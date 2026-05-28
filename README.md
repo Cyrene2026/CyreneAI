@@ -73,7 +73,7 @@ build runtime
 索引支持两种切块策略：
 
 ```python
-from cyreneAI.application.indexing_orchestrator import ChunkStrategy
+from cyreneAI.core.schema.application import ChunkStrategy
 
 chunk_strategy=ChunkStrategy.CHARACTER
 chunk_strategy=ChunkStrategy.PARAGRAPH
@@ -90,7 +90,7 @@ collection_id="project-docs"
 RAG context 注入支持多种格式：
 
 ```python
-from cyreneAI.application.rag_chat_orchestrator import RAGContextFormat
+from cyreneAI.core.schema.application import RAGContextFormat
 
 retrieval_context_format=RAGContextFormat.PLAIN
 retrieval_context_format=RAGContextFormat.NUMBERED
@@ -131,17 +131,15 @@ import asyncio
 import os
 from datetime import timedelta
 
-from cyreneAI.application.bootstrap import build_cyrene_ai_runtime
-from cyreneAI.application.indexing_orchestrator import (
+from cyreneAI.application.indexing_orchestrator import IndexingOrchestrator
+from cyreneAI.application.rag_chat_orchestrator import RAGChatOrchestrator
+from cyreneAI.core.schema.application import (
     ApplicationIndexingRequest,
-    ChunkStrategy,
-    IndexingOrchestrator,
-)
-from cyreneAI.application.rag_chat_orchestrator import (
     ApplicationRAGChatRequest,
+    ChunkStrategy,
     RAGContextFormat,
-    RAGChatOrchestrator,
 )
+from cyreneAI.infra.bootstrap import build_cyrene_ai_runtime
 from cyreneAI.adapters.documents import FileSystemDocumentLoader
 from cyreneAI.adapters.vector_stores import create_memory_vector_store
 from cyreneAI.core.schema.message import (

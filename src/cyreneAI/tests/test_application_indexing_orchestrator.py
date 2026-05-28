@@ -6,16 +6,13 @@ from datetime import timedelta
 import pytest
 from pydantic import ValidationError
 
-from cyreneAI.application.indexing_orchestrator import (
-    ApplicationIndexingRequest,
-    ChunkStrategy,
-    IndexingOrchestrator,
-)
+from cyreneAI.application.indexing_orchestrator import IndexingOrchestrator
 from cyreneAI.application.runtime import CyreneAIRuntime
 from cyreneAI.core.context.builder import ContextWindowBuilder
 from cyreneAI.core.errors.base import StateError, UnsupportedError
 from cyreneAI.core.provider.factory import ProviderFactory
 from cyreneAI.core.provider.manager import ProviderManager
+from cyreneAI.core.schema.application import ApplicationIndexingRequest, ChunkStrategy
 from cyreneAI.core.schema.document import Document
 from cyreneAI.core.schema.embedding import (
     EmbeddingRequest,

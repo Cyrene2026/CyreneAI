@@ -19,7 +19,7 @@
 
 ```text
 core
-  定义规则
+  定义规则、schema、protocol、通用错误
 
 infra/provider_catalog
   声明身份
@@ -28,13 +28,35 @@ infra/adapters
   连接外部世界
 
 infra/bootstrap
-  装配组件
+  装配组件与默认 runtime
 
 application
-  编排应用
+  编排应用，只消费 core 契约
 ```
 
 不允许为了方便跨层写代码。
+
+## application 铁律
+
+`application` 是流程编排层，不是 schema 层，也不是 infra 装配层。
+
+允许：
+
+- 调用 `ProviderManager`、`ContextBuilderProtocol`、`VectorManager` 等 core 契约
+- 把 core schema 转换成下一步 core schema
+- 编排 chat、embedding、indexing、retrieval、RAG、tool feedback loop
+- 在 `application/bootstrap.py` 里用已注入的 core 对象/协议组装 `CyreneAIRuntime`
+
+禁止：
+
+- 定义 `CyreneAISchema` 或任何 Pydantic model
+- import `pydantic`
+- import `cyreneAI.infra`
+- 创建 SQLite store、filesystem loader、provider adapter 等具体实现
+- 注册默认 provider adapter
+
+应用请求/结果模型放在 `src/cyreneAI/core/schema/application.py`。
+带默认 provider、SQLite、filesystem skill loader 的便利 runtime 装配入口放在 `src/cyreneAI/infra/bootstrap/runtime.py`。
 
 ## provider catalog 目录铁律
 
@@ -135,18 +157,21 @@ instance 是 adapter 的运行对象。
 
 ## bootstrap 规则
 
-bootstrap 只负责装配。
+infra bootstrap 只负责装配。
 
 允许：
 
 - 把 `ProviderInfo` 注册到 `ProviderRegistry`
 - 把 adapter builder 注册到 `ProviderFactory`
+- 组合默认 runtime 所需的 infra 实现，例如 SQLite store、filesystem skill loader、默认 provider 注册
 
 禁止：
 
 - 发请求
 - 创建业务流程
 - 读取用户输入
+
+`application/bootstrap.py` 不属于 infra bootstrap，不能 import `cyreneAI.infra`。
 
 ## ProviderConfig 规则
 
@@ -172,13 +197,13 @@ provider 专属配置要求应在 adapter builder 或 instance 中处理。
 
 ```bash
 uv run python -m compileall src
-uv run pytest src\cyreneAI\tests
+uv run python -m pytest src/cyreneAI/tests
 ```
 
 真实调用验证：
 
 ```bash
-uv run pytest -s src\cyreneAI\tests\test_openai_compatible_real_chat.py
+uv run python -m pytest -s src/cyreneAI/tests/test_openai_compatible_real_chat.py
 ```
 
 看到真实模型返回，并通过测试，才算 openai-compatible 实际链路验收完成。

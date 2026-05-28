@@ -5,16 +5,14 @@ from datetime import timedelta
 
 import pytest
 
-from cyreneAI.application.chat_orchestrator import (
-    ApplicationChatRequest,
-    ChatOrchestrator,
-)
+from cyreneAI.application.chat_orchestrator import ChatOrchestrator
 from cyreneAI.application.runtime import CyreneAIRuntime
 from cyreneAI.core.context.builder import ContextWindowBuilder
 from cyreneAI.core.context.manager import ContextManager
 from cyreneAI.core.provider.factory import ProviderFactory
 from cyreneAI.core.provider.manager import ProviderManager
 from cyreneAI.core.errors.tool import ToolExecutionError
+from cyreneAI.core.schema.application import ApplicationChatRequest
 from cyreneAI.core.schema.chat import ChatFinishReason, ChatRequest, ChatResponse
 from cyreneAI.core.schema.context import (
     ContextBuildRequest,

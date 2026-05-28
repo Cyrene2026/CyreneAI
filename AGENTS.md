@@ -32,10 +32,10 @@ infra/adapters
   只放外部系统适配实现，例如 SDK client、请求映射、响应映射、异常翻译。
 
 infra/bootstrap
-  只负责把 provider info、adapter builder、registry、factory 装配起来。
+  只负责把 provider info、adapter builder、registry、factory 与默认 infra runtime 装配起来。
 
 application
-  只负责应用入口与业务流程编排。
+  只负责应用入口与业务流程编排，只消费 core schema/protocol。
 ```
 
 ## 严禁越界
@@ -65,6 +65,17 @@ application
 - 调用外部 API
 - 做 schema 映射
 - 翻译外部异常
+
+`application` 严禁：
+
+- 定义 `CyreneAISchema` / Pydantic schema
+- import `pydantic`
+- import `cyreneAI.infra`
+- 创建 SQLite、filesystem loader、provider adapter 等具体 infra 实现
+- 注册默认 provider adapter
+
+`application/bootstrap.py` 只能从 core 对象和协议组装 `CyreneAIRuntime`。
+带默认 provider、SQLite、filesystem skill loader 的便利装配入口必须放在 `infra/bootstrap`。
 
 ## provider 信息目录规则
 
@@ -98,7 +109,7 @@ src/cyreneAI/infra/bootstrap/registrations/openai_compatible.py
 
 ```bash
 uv run python -m compileall src
-uv run pytest src\cyreneAI\tests
+uv run python -m pytest src/cyreneAI/tests
 ```
 
 真实 API 验证使用环境变量：

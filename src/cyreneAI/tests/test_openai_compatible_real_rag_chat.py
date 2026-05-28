@@ -10,19 +10,17 @@ from datetime import timedelta
 import pytest
 from dotenv import load_dotenv
 
-from cyreneAI.application.indexing_orchestrator import (
-    ApplicationIndexingRequest,
-    IndexingOrchestrator,
-)
-from cyreneAI.application.rag_chat_orchestrator import (
-    ApplicationRAGChatRequest,
-    RAGChatOrchestrator,
-)
+from cyreneAI.application.indexing_orchestrator import IndexingOrchestrator
+from cyreneAI.application.rag_chat_orchestrator import RAGChatOrchestrator
 from cyreneAI.application.runtime import CyreneAIRuntime
 from cyreneAI.core.context.builder import ContextWindowBuilder
 from cyreneAI.core.provider.factory import ProviderFactory
 from cyreneAI.core.provider.manager import ProviderManager
 from cyreneAI.core.provider.registry import ProviderRegistry
+from cyreneAI.core.schema.application import (
+    ApplicationIndexingRequest,
+    ApplicationRAGChatRequest,
+)
 from cyreneAI.core.schema.chat import ChatFinishReason
 from cyreneAI.core.schema.document import Document
 from cyreneAI.core.schema.message import (
