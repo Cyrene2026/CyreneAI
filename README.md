@@ -322,5 +322,5 @@ runtime.tool_registry.register(definition, executor)
 
 ```bash
 uv run python -m compileall src
-uv run pytest src/cyreneAI/tests
+uv run python -m pytest src/cyreneAI/tests
 ```

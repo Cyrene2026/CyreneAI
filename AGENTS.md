@@ -77,6 +77,8 @@ application
 `application/bootstrap.py` 只能从 core 对象和协议组装 `CyreneAIRuntime`。
 带默认 provider、SQLite、filesystem skill loader 的便利装配入口必须放在 `infra/bootstrap`。
 
+看到 application 层定义 schema 时必须立刻拦截；这不是风格问题，会让项目职责迅速失控。
+
 ## provider 信息目录规则
 
 `src/cyreneAI/infra/provider_catalog/` 只准放：

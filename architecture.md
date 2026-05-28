@@ -1,6 +1,6 @@
 # CyreneAI Architecture
 
-CyreneAI 的架构目标是把稳定契约、外部适配和应用编排分开。新增业务策略时优先进入 `application`；新增外部系统实现时进入 `infra/adapters`；只有稳定协议和 schema 才进入 `core`。
+CyreneAI 的架构目标是把稳定契约、外部适配和应用编排分开。新增业务流程时优先进入 `application`；新增外部系统实现时进入 `infra/adapters`；schema、protocol 和通用规则必须进入 `core`。
 
 ## 分层原则
 
@@ -18,20 +18,30 @@ adapters
   公共适配层：面向使用方的轻量 adapter 和稳定导出。
 
 infra/bootstrap
-  装配层：注册 provider info 和 adapter builder。
+  装配层：注册 provider info、adapter builder，并提供默认 runtime 装配入口。
 
 application
-  应用编排层：runtime、chat、embedding、indexing、retrieval、RAG chat。
+  应用编排层：runtime、chat、embedding、indexing、retrieval、RAG chat，只消费 core 契约。
 ```
 
-依赖方向固定：
+代码依赖边界固定：
 
 ```text
-core -> infra
-core/infra -> application
+core
+  不 import infra/application
+
+application
+  不 import infra，不定义 schema
+  这是硬边界：下次谁看到 application 层定义 schema，就应该立刻拦住；否则项目会严重失控。
+
+infra/adapters 与 infra/provider_catalog
+  不 import application
+
+infra/bootstrap
+  可以 import application，用于把 infra 实现装配成默认 runtime
 ```
 
-实际代码里体现为：`core` 不知道 `infra` 和 `application`；`infra` 不反向依赖 `application`；`application` 可以组合 `core` 和 `infra` 提供的能力。
+实际代码里体现为：`application` 只编排 core manager、protocol 和 schema；`application/bootstrap.py` 只用已注入的 core 对象组装 `CyreneAIRuntime`；默认 provider、SQLite、filesystem skill loader 等具体实现只能在 `infra/bootstrap/runtime.py` 里组合。
 
 `cyreneAI.adapters` 是面向使用方的公共适配层。它可以放本地文件加载、轻量 factory、稳定 adapter 导出；不允许放 provider 的 `builder.py`、`instance.py`、`mapper.py`、`errors.py` 这类内部实现文件，也不放 provider 实现目录。provider 仍通过 `provider_catalog`、`infra/adapters/providers` 和 `infra/bootstrap/registrations` 治理。
 
@@ -61,6 +71,7 @@ flowchart LR
 
     subgraph INFRA_BOOT["bootstrap"]
       provider_regs["provider registrations"]
+      runtime_boot["runtime bootstrap\n默认 runtime 装配"]
     end
 
     subgraph INFRA_ADAPTERS["adapters"]
@@ -93,7 +104,7 @@ flowchart LR
     end
 
     subgraph CORE_BASE["base contracts"]
-      schemas["schema\nchat / message / tool / skill / context / provider / document / embedding / vector"]
+      schemas["schema\napplication / chat / message / tool / skill / context / provider / document / embedding / vector"]
       errors["errors\nbase / context / provider / tool / skill / vector"]
     end
   end
@@ -108,10 +119,17 @@ flowchart LR
   app_runtime --> app_retrieve
   app_runtime --> app_rag
 
-  app_boot --> provider_regs
-  app_boot --> skill_adapters
-  app_boot --> sqlite
-  app_boot --> vector_adapters
+  runtime_boot --> app_boot
+  runtime_boot --> provider_regs
+  runtime_boot --> skill_adapters
+  runtime_boot --> sqlite
+  runtime_boot --> vector_adapters
+
+  app_boot --> provider_core
+  app_boot --> context_core
+  app_boot --> skill_core
+  app_boot --> tool_core
+  app_boot --> vector_core
 
   app_chat --> provider_core
   app_chat --> context_core
@@ -125,6 +143,11 @@ flowchart LR
   app_retrieve --> vector_core
   app_rag --> app_chat
   app_rag --> app_retrieve
+  app_chat --> schemas
+  app_embed --> schemas
+  app_index --> schemas
+  app_retrieve --> schemas
+  app_rag --> schemas
 
   provider_regs --> provider_adapters
   provider_regs --> catalog
@@ -177,7 +200,7 @@ flowchart LR
 
   class app_boot,app_runtime,app_chat app;
   class app_boot,app_runtime,app_chat,app_embed,app_index,app_retrieve,app_rag app;
-  class provider_regs,provider_adapters,tool_adapters,skill_adapters,vector_adapters,sqlite,sqlalchemy,catalog infra;
+  class provider_regs,runtime_boot,provider_adapters,tool_adapters,skill_adapters,vector_adapters,sqlite,sqlalchemy,catalog infra;
   class provider_core,context_core,tool_core,skill_core,vector_core core;
   class schemas,errors base;
 ```
@@ -205,7 +228,7 @@ RAGChatOrchestrator
   -> ChatProviderProtocol.chat
 ```
 
-`collection_id`、`chunk_strategy`、RAG context format 这类能力都是应用策略，因此留在 `application`。vector store 只处理 `VectorRecord`、`VectorQuery` 和 `VectorSearchResult`，不理解 RAG。
+`collection_id`、chunking 逻辑、RAG context format 这类能力属于应用编排策略，因此由 `application` 执行；对应请求、结果和枚举定义放在 `core/schema/application.py`。vector store 只处理 `VectorRecord`、`VectorQuery` 和 `VectorSearchResult`，不理解 RAG。
 
 ## 扩展落点
 

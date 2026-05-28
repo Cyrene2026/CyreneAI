@@ -39,6 +39,7 @@ application
 ## application 铁律
 
 `application` 是流程编排层，不是 schema 层，也不是 infra 装配层。
+这是硬边界：下次谁看到 application 层定义 schema，就应该立刻拦住；否则项目会严重失控。
 
 允许：
 
