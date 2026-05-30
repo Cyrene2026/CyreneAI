@@ -3,6 +3,10 @@ name = "CyreneAI"
 version = "0.1.0"
 description = "A cleanly layered AI runtime for provider, context, skill, and tool orchestration."
 readme = "README.md"
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: Apache Software License",
+]
 requires-python = ">=3.12"
 dependencies = [
     "openai",
